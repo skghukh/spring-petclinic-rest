@@ -49,7 +49,7 @@ API documentation (OAS 3.1) is accessible at: [http://localhost:9966/petclinic/v
 | **Method** | **Endpoint** | **Description** |
 |-----------|------------|----------------|
 | **Owners** |  |  |
-| **GET** | `/api/owners` | Retrieve all pet owners |
+| **GET** | `/api/owners` | Retrieve pet owners (optional `lastName`, `pageNumber` default 1, `pageSize` default 20; JSON array body; `X-Page-Number` / `X-Page-Size` headers) |
 | **GET** | `/api/owners/{ownerId}` | Get a pet owner by ID |
 | **POST** | `/api/owners` | Add a new pet owner |
 | **PUT** | `/api/owners/{ownerId}` | Update an owner’s details |

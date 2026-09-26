@@ -16,9 +16,11 @@
 
 package org.springframework.samples.petclinic.rest.controller.v1;
 
-import java.util.Collection;
 import java.util.List;
 
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Sort;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -73,17 +75,19 @@ public class OwnerRestControllerV1 implements OwnersApi {
 
     @PreAuthorize("hasRole(@roles.OWNER_ADMIN)")
     @Override
-    public ResponseEntity<List<OwnerDto>> listOwners(String lastName) {
-        Collection<Owner> owners;
-        if (lastName != null) {
-            owners = this.clinicService.findOwnerByLastName(lastName);
-        } else {
-            owners = this.clinicService.findAllOwners();
-        }
+    public ResponseEntity<List<OwnerDto>> listOwners(String lastName, Integer pageNumber, Integer pageSize) {
+        int resolvedPageNumber = pageNumber == null ? 1 : pageNumber;
+        int resolvedPageSize = pageSize == null ? 20 : pageSize;
+        Page<Owner> owners = this.clinicService.findOwners(
+            lastName,
+            PageRequest.of(resolvedPageNumber - 1, resolvedPageSize, Sort.by("id")));
         if (owners.isEmpty()) {
             return new ResponseEntity<>(HttpStatus.NOT_FOUND);
         }
-        return new ResponseEntity<>(ownerMapper.toOwnerDtoCollection(owners), HttpStatus.OK);
+        HttpHeaders headers = new HttpHeaders();
+        headers.add("X-Page-Number", String.valueOf(resolvedPageNumber));
+        headers.add("X-Page-Size", String.valueOf(resolvedPageSize));
+        return new ResponseEntity<>(ownerMapper.toOwnerDtoCollection(owners.getContent()), headers, HttpStatus.OK);
     }
 
     @PreAuthorize("hasRole(@roles.OWNER_ADMIN)")

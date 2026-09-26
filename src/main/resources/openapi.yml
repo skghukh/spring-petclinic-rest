@@ -100,7 +100,7 @@ paths:
         - owners
       operationId: listOwners
       summary: Lists pet owners
-      description: Returns an array of pet owners.
+      description: Returns an array of pet owners. Pagination is always applied; defaults are pageNumber=1 and pageSize=20.
       parameters:
         - name: lastName
           in: query
@@ -109,6 +109,27 @@ paths:
           schema:
             type: string
             example: Davis
+        - name: pageNumber
+          in: query
+          description: One-based page index.
+          required: false
+          schema:
+            type: integer
+            format: int32
+            minimum: 1
+            default: 1
+            example: 1
+        - name: pageSize
+          in: query
+          description: Number of items per page.
+          required: false
+          schema:
+            type: integer
+            format: int32
+            minimum: 1
+            maximum: 100
+            default: 20
+            example: 20
       responses:
         200:
           description: Owner details found and returned.
@@ -117,6 +138,16 @@ paths:
               description: An ID for this version of the response.
               schema:
                 type: string
+            X-Page-Number:
+              description: One-based page index of the returned results.
+              schema:
+                type: integer
+                format: int32
+            X-Page-Size:
+              description: Page size used for the returned results.
+              schema:
+                type: integer
+                format: int32
           content:
             application/json:
               schema:
@@ -130,6 +161,12 @@ paths:
               description: An ID for this version of the response.
               schema:
                 type: string
+        400:
+          description: Bad request.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetail'
         500:
           description: Server error.
           content:

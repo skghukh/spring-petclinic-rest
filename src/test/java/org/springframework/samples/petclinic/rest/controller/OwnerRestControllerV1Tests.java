@@ -17,6 +17,9 @@
 package org.springframework.samples.petclinic.rest.controller;
 
 import org.springframework.dao.DataIntegrityViolationException;
+import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Sort;
 import org.springframework.samples.petclinic.rest.controller.v1.OwnerRestControllerV1;
 import tools.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.BeforeEach;
@@ -50,11 +53,11 @@ import java.util.ArrayList;
 import java.util.List;
 
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.Mockito.doThrow;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
-
 
 /**
  * Test class for {@link OwnerRestControllerV1}
@@ -176,11 +179,15 @@ class OwnerRestControllerV1Tests {
     void testGetOwnersListSuccess() throws Exception {
         owners.remove(0);
         owners.remove(1);
-        given(this.clinicService.findOwnerByLastName("Davis")).willReturn(ownerMapper.toOwners(owners));
+        var pageRequest = PageRequest.of(0, 20, Sort.by("id"));
+        given(this.clinicService.findOwners(eq("Davis"), eq(pageRequest)))
+            .willReturn(new PageImpl<>(ownerMapper.toOwners(owners).stream().toList(), pageRequest, owners.size()));
         this.mockMvc.perform(get("/api/owners?lastName=Davis")
                 .accept(MediaType.APPLICATION_JSON))
             .andExpect(status().isOk())
             .andExpect(content().contentType("application/json"))
+            .andExpect(header().string("X-Page-Number", "1"))
+            .andExpect(header().string("X-Page-Size", "20"))
             .andExpect(jsonPath("$.[0].id").value(2))
             .andExpect(jsonPath("$.[0].firstName").value("Betty"))
             .andExpect(jsonPath("$.[1].id").value(4))
@@ -191,7 +198,9 @@ class OwnerRestControllerV1Tests {
     @WithMockUser(roles = "OWNER_ADMIN")
     void testGetOwnersListNotFound() throws Exception {
         owners.clear();
-        given(this.clinicService.findOwnerByLastName("0")).willReturn(ownerMapper.toOwners(owners));
+        var pageRequest = PageRequest.of(0, 20, Sort.by("id"));
+        given(this.clinicService.findOwners(eq("0"), eq(pageRequest)))
+            .willReturn(new PageImpl<>(ownerMapper.toOwners(owners).stream().toList(), pageRequest, 0));
         this.mockMvc.perform(get("/api/owners?lastName=0")
                 .accept(MediaType.APPLICATION_JSON))
             .andExpect(status().isNotFound());
@@ -202,11 +211,15 @@ class OwnerRestControllerV1Tests {
     void testGetAllOwnersSuccess() throws Exception {
         owners.remove(0);
         owners.remove(1);
-        given(this.clinicService.findAllOwners()).willReturn(ownerMapper.toOwners(owners));
+        var pageRequest = PageRequest.of(0, 20, Sort.by("id"));
+        given(this.clinicService.findOwners(eq(null), eq(pageRequest)))
+            .willReturn(new PageImpl<>(ownerMapper.toOwners(owners).stream().toList(), pageRequest, owners.size()));
         this.mockMvc.perform(get("/api/owners")
                 .accept(MediaType.APPLICATION_JSON))
             .andExpect(status().isOk())
             .andExpect(content().contentType("application/json"))
+            .andExpect(header().string("X-Page-Number", "1"))
+            .andExpect(header().string("X-Page-Size", "20"))
             .andExpect(jsonPath("$.[0].id").value(2))
             .andExpect(jsonPath("$.[0].firstName").value("Betty"))
             .andExpect(jsonPath("$.[1].id").value(4))
@@ -217,8 +230,61 @@ class OwnerRestControllerV1Tests {
     @WithMockUser(roles = "OWNER_ADMIN")
     void testGetAllOwnersNotFound() throws Exception {
         owners.clear();
-        given(this.clinicService.findAllOwners()).willReturn(ownerMapper.toOwners(owners));
+        var pageRequest = PageRequest.of(0, 20, Sort.by("id"));
+        given(this.clinicService.findOwners(eq(null), eq(pageRequest)))
+            .willReturn(new PageImpl<>(ownerMapper.toOwners(owners).stream().toList(), pageRequest, 0));
         this.mockMvc.perform(get("/api/owners")
+                .accept(MediaType.APPLICATION_JSON))
+            .andExpect(status().isNotFound());
+    }
+
+    @Test
+    @WithMockUser(roles = "OWNER_ADMIN")
+    void testGetOwnersPageSubsetSuccess() throws Exception {
+        var pageRequest = PageRequest.of(1, 2, Sort.by("id"));
+        var pageOwners = ownerMapper.toOwners(owners.subList(2, 4)).stream().toList();
+        given(this.clinicService.findOwners(eq(null), eq(pageRequest)))
+            .willReturn(new PageImpl<>(pageOwners, pageRequest, owners.size()));
+        this.mockMvc.perform(get("/api/owners?pageNumber=2&pageSize=2")
+                .accept(MediaType.APPLICATION_JSON))
+            .andExpect(status().isOk())
+            .andExpect(content().contentType("application/json"))
+            .andExpect(header().string("X-Page-Number", "2"))
+            .andExpect(header().string("X-Page-Size", "2"))
+            .andExpect(jsonPath("$.[0].id").value(3))
+            .andExpect(jsonPath("$.[0].firstName").value("Eduardo"))
+            .andExpect(jsonPath("$.[1].id").value(4))
+            .andExpect(jsonPath("$.[1].firstName").value("Harold"))
+            .andExpect(jsonPath("$.length()").value(2));
+    }
+
+    @Test
+    @WithMockUser(roles = "OWNER_ADMIN")
+    void testGetOwnersPageByLastNameSuccess() throws Exception {
+        owners.remove(0);
+        owners.remove(1);
+        var pageRequest = PageRequest.of(0, 1, Sort.by("id"));
+        var pageOwners = ownerMapper.toOwners(owners.subList(0, 1)).stream().toList();
+        given(this.clinicService.findOwners(eq("Davis"), eq(pageRequest)))
+            .willReturn(new PageImpl<>(pageOwners, pageRequest, owners.size()));
+        this.mockMvc.perform(get("/api/owners?lastName=Davis&pageNumber=1&pageSize=1")
+                .accept(MediaType.APPLICATION_JSON))
+            .andExpect(status().isOk())
+            .andExpect(content().contentType("application/json"))
+            .andExpect(header().string("X-Page-Number", "1"))
+            .andExpect(header().string("X-Page-Size", "1"))
+            .andExpect(jsonPath("$.[0].id").value(2))
+            .andExpect(jsonPath("$.[0].firstName").value("Betty"))
+            .andExpect(jsonPath("$.length()").value(1));
+    }
+
+    @Test
+    @WithMockUser(roles = "OWNER_ADMIN")
+    void testGetOwnersPageEmptyNotFound() throws Exception {
+        var pageRequest = PageRequest.of(5, 20, Sort.by("id"));
+        given(this.clinicService.findOwners(eq(null), eq(pageRequest)))
+            .willReturn(new PageImpl<>(List.of(), pageRequest, 4));
+        this.mockMvc.perform(get("/api/owners?pageNumber=6&pageSize=20")
                 .accept(MediaType.APPLICATION_JSON))
             .andExpect(status().isNotFound());
     }
