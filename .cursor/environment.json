@@ -1,0 +1,17 @@
+{
+  "name": "spring-petclinic-rest",
+  "install": "./mvnw -B -DskipTests clean package",
+  "terminals": [
+    {
+      "name": "app",
+      "command": "./mvnw -B spring-boot:run",
+      "description": "Runs the Spring PetClinic REST API (in-memory H2). Base URL: http://localhost:9966/petclinic — health at /actuator/health, Swagger UI at /swagger-ui.html."
+    }
+  ],
+  "ports": [
+    {
+      "name": "petclinic-api",
+      "port": 9966
+    }
+  ]
+}
